@@ -1,4 +1,5 @@
 import styled from '@emotion/styled'
+import {css} from '@emotion/core'
 import {Dialog as ReachDialog} from '@reach/dialog'
 
 // 🐨 create a button styled component here called "Button"
@@ -16,29 +17,42 @@ import {Dialog as ReachDialog} from '@reach/dialog'
 // 💰 in my finished version I have: Button, Input, CircleButton, Dialog, FormGroup
 
 // 🎨 here are a bunch of styles you can copy/paste if you want
-// Button:
+const theme = {
+  primary: {
+    background: '#3f51b5',
+    color: 'white',
+  },
+  secondary: {
+    background: '#f1f2f7',
+    color: '#434449',
+  }
+}
+
+const Button = styled.button`
+  padding: 10px 15px;
+  border: 0;
+  line-height: 1;
+  border-radius: 3px;
+  ${({variant = 'primary'}) => css(theme[variant])}
+`
+// const Button = styled.button({
 //   padding: '10px 15px',
 //   border: '0',
 //   lineHeight: '1',
 //   borderRadius: '3px',
+// }, ({variant = 'primary'}) => theme[variant])
 
-// Button variant="primary" (in addition to the above styles)
-//   background: '#3f51b5',
-//   color: 'white',
+const Input = styled.input({
+  borderRadius: '3px',
+  border: '1px solid #f1f1f4',
+  background: '#f1f2f7',
+  padding: '8px 12px',  
+})
 
-// Button variant="secondary" (in addition to the above styles)
-//   background: '#f1f2f7',
-//   color: '#434449',
-
-// Input
-//   borderRadius: '3px',
-//   border: '1px solid #f1f1f4',
-//   background: '#f1f2f7',
-//   padding: '8px 12px',
-
-// FormGroup
-//   display: 'flex',
-//   flexDirection: 'column',
+const FormGroup = styled.div({
+  display: 'flex',
+  flexDirection: 'column',
+})
 
 // 💰 I'm giving a few of these to you:
 const CircleButton = styled.button({
@@ -68,4 +82,4 @@ const Dialog = styled(ReachDialog)({
   },
 })
 
-export {CircleButton, Dialog}
+export {Button, Input, FormGroup, CircleButton, Dialog}
