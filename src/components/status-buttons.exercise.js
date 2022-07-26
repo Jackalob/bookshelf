@@ -11,12 +11,11 @@ import {
 } from 'react-icons/fa'
 import Tooltip from '@reach/tooltip'
 import {useMutation, useQuery, queryCache} from 'react-query'
-// 🐨 you'll need useQuery, useMutation, and queryCache from 'react-query'
-// 🐨 you'll also need client from 'utils/api-client'
 import {client} from 'utils/api-client'
 import {useAsync} from 'utils/hooks'
 import * as colors from 'styles/colors'
 import {CircleButton, Spinner} from './lib'
+import {useListItem} from 'utils/list-items'
 
 function TooltipButton({label, highlight, onClick, icon, ...rest}) {
   const {isLoading, isError, error, run} = useAsync()
@@ -49,21 +48,8 @@ function TooltipButton({label, highlight, onClick, icon, ...rest}) {
 }
 
 function StatusButtons({user, book}) {
-  // 🐨 call useQuery here to get the listItem (if it exists)
-  // queryKey should be 'list-items'
-  // queryFn should call the list-items endpoint
-  const {data: listItems} = useQuery({
-    queryKey: 'list-items',
-    queryFn: () =>
-      client('list-items', {token: user.token}).then(data => data.listItems),
-  })
+  const listItem = useListItem(user, book.id)
 
-  const listItem = listItems?.find(li => li.bookId === book.id) ?? null
-
-  // 🐨 call useMutation here and assign the mutate function to "update"
-  // the mutate function should call the list-items/:listItemId endpoint with a PUT
-  //   and the updates as data. The mutate function will be called with the updates
-  //   you can pass as data.
   const [update] = useMutation(
     ({id, finishDate}) =>
       client(`list-items/${id}`, {
