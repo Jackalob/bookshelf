@@ -1,5 +1,6 @@
 import {useQuery, useMutation, queryCache} from 'react-query'
 import {client} from 'utils/api-client'
+import {setQueryDataForBook} from './books'
 
 const defaultMutationOptions = {
   onSettled: () => queryCache.invalidateQueries('list-items'),
@@ -10,6 +11,13 @@ function useListItems(user) {
     queryKey: 'list-items',
     queryFn: () =>
       client('list-items', {token: user.token}).then(res => res.listItems),
+    config: {
+      onSuccess: listItems => {
+        for (const listItem of listItems) {
+          setQueryDataForBook(listItem.book)
+        }
+      },
+    },
   })
   return data ?? []
 }
@@ -38,7 +46,7 @@ function useRemoveListItem(user, options) {
         method: 'DELETE',
         token: user.token,
       }),
-      {...defaultMutationOptions, ...options},
+    {...defaultMutationOptions, ...options},
   )
 }
 
@@ -49,7 +57,7 @@ function useCreateListItem(user, options) {
         data: {bookId},
         token: user.token,
       }),
-      {...defaultMutationOptions, ...options},
+    {...defaultMutationOptions, ...options},
   )
 }
 
