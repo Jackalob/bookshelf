@@ -9,13 +9,13 @@ import {useBookSearch, refetchBookSearchQuery} from 'utils/books'
 import * as colors from 'styles/colors'
 import {BookRow} from 'components/book-row'
 import {BookListUL, Spinner, Input} from 'components/lib'
+import {AuthContext} from 'context/auth-context'
 
-// 💣 remove the user prop here
-function DiscoverBooksScreen({user}) {
+function DiscoverBooksScreen() {
+  const {user} = React.useContext(AuthContext)
   const [query, setQuery] = React.useState('')
   const [queried, setQueried] = React.useState(false)
-  // 💣 remove the user argument here
-  const {books, error, status} = useBookSearch(query, user)
+  const {books, error, status} = useBookSearch(query)
   // 🐨 use the new useRefetchBookSearchQuery to get the
   // refetchBookSearchQuery function which handles accessing the user
 
@@ -96,12 +96,7 @@ function DiscoverBooksScreen({user}) {
           <BookListUL css={{marginTop: 20}}>
             {books.map(book => (
               <li key={book.id} aria-label={book.title}>
-                <BookRow
-                  // 💣 remove the user prop here
-                  user={user}
-                  key={book.id}
-                  book={book}
-                />
+                <BookRow key={book.id} book={book} />
               </li>
             ))}
           </BookListUL>
