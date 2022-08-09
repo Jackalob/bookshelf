@@ -1,50 +1,63 @@
-// 🐨 here are the things you're going to need for this test:
 import * as React from 'react'
-import {App} from 'app'
-import {render, screen, waitForElementToBeRemoved} from '@testing-library/react'
-import {AppProviders} from 'context'
+import {
+  render as rtlRender,
+  screen,
+  waitForElementToBeRemoved,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import * as auth from 'auth-provider'
 import {buildBook, buildUser} from 'test/generate'
 import {queryCache} from 'react-query'
+import * as usersDB from 'test/data/users'
+import * as booksDB from 'test/data/books'
+import * as listItemsDB from 'test/data/list-items'
+import {formatDate} from 'utils/misc'
+import {App} from 'app'
+import {AppProviders} from 'context'
 
-afterEach(() => {
+afterEach(async () => {
   queryCache.clear()
-  auth.logout()
+  await Promise.all([
+    auth.logout(),
+    usersDB.reset(),
+    booksDB.reset(),
+    listItemsDB.reset(),
+  ])
 })
 
-test('renders all the book information', async () => {
-  const user = buildUser()
-  const book = buildBook()
+async function render(ui, {route = '/list', user, ...renderOptions} = {}) {
+  user = user === undefined ? await loginAsUser() : user
+  window.history.pushState({}, 'TEST PAGE', route)
 
-  window.localStorage.setItem(auth.localStorageKey, 'SOME_FAKE_TOKEN')
-  window.history.pushState({}, 'TEST PAGE', `/book/${book.id}`)
-
-  const originalFetch = window.fetch
-  window.fetch = async (url, config) => {
-    if (url.endsWith('/bootstrap')) {
-      return {
-        ok: true,
-        json: async () => ({
-          user: {...user, token: 'SOME_FAKE_TOKEN'},
-          listItems: [],
-        }),
-      }
-    } else if (url.endsWith(`/books/${book.id}`)) {
-      return {
-        ok: true,
-        json: async () => ({book}),
-      }
-    }
-    return originalFetch(url, config)
+  const returnValue = {
+    ...rtlRender(ui, {wrapper: AppProviders, ...renderOptions}),
+    user,
   }
 
-  render(<App />, {wrapper: AppProviders})
+  await waitForLoadingToFinish()
 
-  await waitForElementToBeRemoved(() => [
+  return returnValue
+}
+
+async function loginAsUser(userProperties) {
+  const user = buildUser(userProperties)
+  await usersDB.create(user)
+  const authUser = await usersDB.authenticate(user)
+  window.localStorage.setItem(auth.localStorageKey, authUser.token)
+  return authUser
+}
+
+function waitForLoadingToFinish() {
+  return waitForElementToBeRemoved(() => [
     ...screen.queryAllByLabelText(/loading/i),
     ...screen.queryAllByText(/loading/i),
   ])
-  screen.debug()
+}
+
+test('renders all the book information', async () => {
+  const book = await booksDB.create(buildBook())
+  const route = `/book/${book.id}`
+  await render(<App />, {route})
 
   expect(screen.getByRole('heading', {name: book.title})).toBeInTheDocument()
   expect(screen.getByText(book.author)).toBeInTheDocument()
@@ -71,25 +84,34 @@ test('renders all the book information', async () => {
   expect(screen.queryByRole('radio', {name: /star/i})).not.toBeInTheDocument()
   expect(screen.queryByLabelText(/start date/i)).not.toBeInTheDocument()
 })
-// 🐨 "authenticate" the client by setting the auth.localStorageKey in localStorage to some string value (can be anything for now)
 
-// 🐨 create a user using `buildUser`
-// 🐨 create a book use `buildBook`
-// 🐨 update the URL to `/book/${book.id}`
-//   💰 window.history.pushState({}, 'page title', route)
-//   📜 https://developer.mozilla.org/en-US/docs/Web/API/History/pushState
+test('can create a list item for the book', async () => {
+  const book = await booksDB.create(buildBook())
+  const route = `/book/${book.id}`
+  await render(<App />, {route})
 
-// 🐨 reassign window.fetch to another function and handle the following requests:
-// - url ends with `/bootstrap`: respond with {user, listItems: []}
-// - url ends with `/list-items`: respond with {listItems: []}
-// - url ends with `/books/${book.id}`: respond with {book}
-// 💰 window.fetch = async (url, config) => { /* handle stuff here*/ }
-// 💰 return Promise.resolve({ok: true, json: async () => ({ /* response data here */ })})
+  const addToListButton = screen.getByRole('button', {name: /add to list/i})
+  await userEvent.click(addToListButton)
+  expect(addToListButton).toBeDisabled()
 
-// 🐨 render the App component and set the wrapper to the AppProviders
-// (that way, all the same providers we have in the app will be avail able in our tests)
+  await waitForLoadingToFinish()
 
-// 🐨 use findBy to wait for the book title to appear
-// 📜 https://testing-library.com/docs/dom-testing-library/api-async#findby-queries
+  expect(
+    screen.getByRole('button', {name: /mark as read/i}),
+  ).toBeInTheDocument()
+  expect(
+    screen.getByRole('button', {name: /remove from list/i}),
+  ).toBeInTheDocument()
+  expect(screen.getByRole('textbox', {name: /notes/i})).toBeInTheDocument()
 
-// 🐨 assert the book's info is in the document
+  const startDateNode = screen.getByLabelText(/start date/i)
+  expect(startDateNode).toHaveTextContent(formatDate(Date.now()))
+
+  expect(
+    screen.queryByRole('button', {name: /add to list/i}),
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', {name: /mark as unread/i}),
+  ).not.toBeInTheDocument()
+  expect(screen.queryByRole('radio', {name: /star/i})).not.toBeInTheDocument()
+})
