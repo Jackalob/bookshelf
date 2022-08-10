@@ -1,58 +1,16 @@
 import * as React from 'react'
 import {
-  render as rtlRender,
+  render,
   screen,
-  waitForElementToBeRemoved,
-} from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import * as auth from 'auth-provider'
-import {buildBook, buildUser} from 'test/generate'
-import {queryCache} from 'react-query'
-import * as usersDB from 'test/data/users'
+  waitForLoadingToFinish,
+  userEvent,
+  loginAsUser,
+} from 'test/app-test-utils.js'
+import {buildBook, buildListItem} from 'test/generate'
 import * as booksDB from 'test/data/books'
 import * as listItemsDB from 'test/data/list-items'
 import {formatDate} from 'utils/misc'
 import {App} from 'app'
-import {AppProviders} from 'context'
-
-afterEach(async () => {
-  queryCache.clear()
-  await Promise.all([
-    auth.logout(),
-    usersDB.reset(),
-    booksDB.reset(),
-    listItemsDB.reset(),
-  ])
-})
-
-async function render(ui, {route = '/list', user, ...renderOptions} = {}) {
-  user = user === undefined ? await loginAsUser() : user
-  window.history.pushState({}, 'TEST PAGE', route)
-
-  const returnValue = {
-    ...rtlRender(ui, {wrapper: AppProviders, ...renderOptions}),
-    user,
-  }
-
-  await waitForLoadingToFinish()
-
-  return returnValue
-}
-
-async function loginAsUser(userProperties) {
-  const user = buildUser(userProperties)
-  await usersDB.create(user)
-  const authUser = await usersDB.authenticate(user)
-  window.localStorage.setItem(auth.localStorageKey, authUser.token)
-  return authUser
-}
-
-function waitForLoadingToFinish() {
-  return waitForElementToBeRemoved(() => [
-    ...screen.queryAllByLabelText(/loading/i),
-    ...screen.queryAllByText(/loading/i),
-  ])
-}
 
 test('renders all the book information', async () => {
   const book = await booksDB.create(buildBook())
@@ -114,4 +72,55 @@ test('can create a list item for the book', async () => {
     screen.queryByRole('button', {name: /mark as unread/i}),
   ).not.toBeInTheDocument()
   expect(screen.queryByRole('radio', {name: /star/i})).not.toBeInTheDocument()
+})
+
+test('can remove a list item for the book', async () => {
+  const user = await loginAsUser()
+  const book = await booksDB.create(buildBook())
+  await listItemsDB.create(buildListItem({owner: user, book}))
+
+  const route = `/book/${book.id}`
+  await render(<App />, {user, route})
+
+  const removeFromListButton = screen.getByRole('button', {
+    name: /remove from list/i,
+  })
+  await userEvent.click(removeFromListButton)
+  expect(removeFromListButton).toBeDisabled()
+
+  await waitForLoadingToFinish()
+
+  expect(
+    screen.queryByRole('button', {name: /remove from list/i}),
+  ).not.toBeInTheDocument()
+  expect(screen.getByRole('button', {name: /add to list/i})).toBeInTheDocument()
+})
+
+test('can mark a list item as read', async () => {
+  const user = await loginAsUser()
+  const book = await booksDB.create(buildBook())
+  const listItem = await listItemsDB.create(
+    buildListItem({owner: user, book, finishDate: null}),
+  )
+
+  const route = `/book/${book.id}`
+  await render(<App />, {route, user})
+
+  const markAsReadButton = screen.getByRole('button', {name: /mark as read/i})
+  await userEvent.click(markAsReadButton)
+  expect(markAsReadButton).toBeDisabled()
+
+  await waitForLoadingToFinish()
+
+  const startAndFinishDateNode = screen.getByLabelText(/start and finish date/i)
+  expect(startAndFinishDateNode).toHaveTextContent(
+    `${formatDate(listItem.startDate)} — ${formatDate(Date.now())}`,
+  )
+
+  expect(
+    screen.queryByRole('button', {name: /mark as read/i}),
+  ).not.toBeInTheDocument()
+  expect(
+    screen.getByRole('button', {name: /mark as unread/i}),
+  ).toBeInTheDocument()
 })
