@@ -8,9 +8,15 @@ import * as listItemsDB from 'test/data/list-items'
 
 // enable API mocking in test runs using the same request handlers
 // as for the client-side mocking.
+
+
+jest.mock('components/profiler')
+
 beforeAll(() => server.listen())
 afterAll(() => server.close())
 afterEach(() => server.resetHandlers())
+
+beforeEach(() => jest.useRealTimers())
 
 afterEach(async () => {
   queryCache.clear()
